@@ -1,5 +1,7 @@
 from pathlib import Path
 from typing import Optional
+import os
+import uuid
 
 from fastapi import (
     FastAPI,
@@ -20,7 +22,14 @@ from database import (
 )
 
 
-app = FastAPI(title="JAA.AI")
+# =========================
+# APP
+# =========================
+
+app = FastAPI(
+    title="JAA.AI",
+    version="1.0.0"
+)
 
 
 # =========================
@@ -30,27 +39,56 @@ app = FastAPI(title="JAA.AI")
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 UPLOAD_DIR = BASE_DIR / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
+UPLOAD_DIR.mkdir(
+    exist_ok=True
+)
 
 FRONTEND_DIR = BASE_DIR / "app" / "frontend"
 INDEX_FILE = FRONTEND_DIR / "index.html"
 
 
 # =========================
+# SECURITY SETTINGS
+# =========================
+
+MAX_PDF_SIZE = 10 * 1024 * 1024
+MAX_QUESTION_LENGTH = 1000
+MAX_SESSION_ID_LENGTH = 100
+
+
+# =========================
 # CORS
 # =========================
+#
+# Local development:
+# frontend and API both run
+# on 127.0.0.1:8000.
+#
+# Keep localhost origins only.
+#
+
+ALLOWED_ORIGINS = [
+    "http://127.0.0.1:8000",
+    "http://localhost:8000"
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=[
+        "GET",
+        "POST",
+        "DELETE"
+    ],
+    allow_headers=[
+        "Content-Type"
+    ],
 )
 
 
 # =========================
-# HOME - FRONTEND
+# HOME
 # =========================
 
 @app.get("/")
@@ -60,7 +98,7 @@ def home():
 
         raise HTTPException(
             status_code=404,
-            detail="Frontend index.html not found."
+            detail="Frontend not found."
         )
 
     return FileResponse(
@@ -77,7 +115,8 @@ def health():
 
     return {
         "status": "healthy",
-        "service": "JAA.AI"
+        "service": "JAA.AI",
+        "version": "1.0.0"
     }
 
 
@@ -91,14 +130,18 @@ def ask(
     session_id: Optional[str] = "default"
 ):
 
+    # Validate question
+
     if not question or not question.strip():
 
         raise HTTPException(
             status_code=400,
-            detail="Question cannot be empty"
+            detail="Question cannot be empty."
         )
 
-    if len(question) > 1000:
+    question = question.strip()
+
+    if len(question) > MAX_QUESTION_LENGTH:
 
         raise HTTPException(
             status_code=400,
@@ -108,15 +151,32 @@ def ask(
             )
         )
 
+
+    # Validate session ID
+
+    if not session_id:
+
+        session_id = "default"
+
+    session_id = session_id.strip()
+
+    if len(session_id) > MAX_SESSION_ID_LENGTH:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid session ID."
+        )
+
+
     try:
 
         result = ask_ai(
-            question.strip(),
+            question,
             session_id
         )
 
         return {
-            "question": question.strip(),
+            "question": question,
             "answer": result["answer"],
             "sources": result["sources"],
             "session_id": session_id
@@ -125,7 +185,7 @@ def ask(
     except Exception as e:
 
         print(
-            "ERROR:",
+            "ASK ERROR:",
             repr(e)
         )
 
@@ -146,6 +206,21 @@ def ask(
 def get_history(
     session_id: str
 ):
+
+    if not session_id:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid session ID."
+        )
+
+    if len(session_id) > MAX_SESSION_ID_LENGTH:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid session ID."
+        )
+
 
     try:
 
@@ -189,6 +264,21 @@ def delete_history(
     session_id: str
 ):
 
+    if not session_id:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid session ID."
+        )
+
+    if len(session_id) > MAX_SESSION_ID_LENGTH:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid session ID."
+        )
+
+
     try:
 
         delete_chat(
@@ -227,6 +317,8 @@ async def upload_document(
     file: UploadFile = File(...)
 ):
 
+    # Check filename
+
     if not file.filename:
 
         raise HTTPException(
@@ -234,29 +326,30 @@ async def upload_document(
             detail="No file selected."
         )
 
-    filename = file.filename
 
-    if not filename.lower().endswith(".pdf"):
+    original_filename = file.filename
+
+
+    # Only PDF extension
+
+    if not original_filename.lower().endswith(
+        ".pdf"
+    ):
 
         raise HTTPException(
             status_code=400,
             detail="Only PDF files are allowed."
         )
 
-    # Safe filename
-    safe_filename = Path(
-        filename
-    ).name
-
-    file_path = (
-        UPLOAD_DIR /
-        safe_filename
-    )
 
     try:
 
-        # Read uploaded PDF
+        # Read PDF
+
         content = await file.read()
+
+
+        # Empty file check
 
         if not content:
 
@@ -265,7 +358,54 @@ async def upload_document(
                 detail="The PDF file is empty."
             )
 
+
+        # File size check
+
+        if len(content) > MAX_PDF_SIZE:
+
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    "PDF file is too large. "
+                    "Maximum size is 10 MB."
+                )
+            )
+
+
+        # PDF signature check
+        #
+        # Real PDF files normally
+        # start with %PDF-
+
+        if not content.startswith(
+            b"%PDF-"
+        ):
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Invalid PDF file."
+                )
+            )
+
+
+        # Generate safe server-side filename
+        #
+        # Never trust the user's filename
+        # for the actual storage path.
+
+        safe_filename = (
+            f"{uuid.uuid4().hex}.pdf"
+        )
+
+        file_path = (
+            UPLOAD_DIR /
+            safe_filename
+        )
+
+
         # Save PDF
+
         with open(
             file_path,
             "wb"
@@ -273,17 +413,20 @@ async def upload_document(
 
             f.write(content)
 
+
         # Index PDF in ChromaDB
+
         result = ingest_pdf(
             file_path
         )
+
 
         return {
             "message":
                 "PDF uploaded and indexed successfully",
 
             "filename":
-                safe_filename,
+                original_filename,
 
             "pages":
                 result["pages"],
@@ -295,9 +438,11 @@ async def upload_document(
                 result["source"]
         }
 
+
     except HTTPException:
 
         raise
+
 
     except Exception as e:
 
@@ -306,10 +451,25 @@ async def upload_document(
             repr(e)
         )
 
+
+        # Remove partially saved file
+        # if indexing fails.
+
+        try:
+
+            if file_path.exists():
+
+                file_path.unlink()
+
+        except Exception:
+
+            pass
+
+
         raise HTTPException(
             status_code=500,
             detail=(
-                "PDF was uploaded but "
-                "could not be indexed."
+                "PDF could not be "
+                "uploaded or indexed."
             )
         )

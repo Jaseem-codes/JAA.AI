@@ -1,26 +1,65 @@
-# JAA.AI
+# JAA.AI 🤖
 
-Production-Grade AI Research Agent
+### Production-Grade AI Research Assistant
 
-## About
+JAA.AI is an AI-powered research assistant that combines **Retrieval-Augmented Generation (RAG)**, **vector search**, **local LLM inference**, and **chat memory** to provide context-aware answers from uploaded PDF documents.
 
-JAA.AI is an AI Research Agent that uses RAG, vector search and agent workflows to research information and provide useful answers.
+---
 
-## Technologies
+## ✨ Features
 
-- Python
-- LangChain
-- LangGraph
-- ChromaDB
-- FastAPI
-- Streamlit
-- PyMuPDF
-- Sentence Transformers
+- 📄 Upload PDF documents
+- 🔎 Semantic document search using vector embeddings
+- 🧠 Retrieval-Augmented Generation (RAG)
+- 🤖 Local AI inference using Ollama + Llama 3.2
+- 💬 Context-aware conversational memory
+- 🗂️ Chat history management
+- 🗑️ Delete individual conversations
+- 📚 Display document sources with answers
+- ⚡ FastAPI backend
+- 🌐 Web-based chat interface
+- 🔐 Secure PDF upload validation
+- 🧪 Automated API tests
+- 💾 Persistent chat storage using SQLite
 
-## Project Structure
+---
 
-- app → User interface and API
-- agent → AI agent workflow
-- rag → Retrieval-Augmented Generation
-- data → Documents and knowledge
-- tests → Project tests
+## 🏗️ Architecture
+
+```text
+User
+  │
+  ▼
+Web Interface
+  │
+  ▼
+FastAPI Backend
+  │
+  ├── PDF Upload
+  │       │
+  │       ▼
+  │   PyMuPDF
+  │       │
+  │       ▼
+  │   Text Chunking
+  │       │
+  │       ▼
+  │   HuggingFace Embeddings
+  │       │
+  │       ▼
+  │   ChromaDB
+  │
+  └── User Question
+          │
+          ▼
+      Vector Search
+          │
+          ▼
+      Relevant Context
+          │
+          ▼
+      Ollama
+      Llama 3.2
+          │
+          ▼
+      AI Response
