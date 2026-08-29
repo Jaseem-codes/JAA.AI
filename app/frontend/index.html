@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JAA.AI - AI Assistant</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            min-height: 100vh;
+        }
+
+        .app {
+            width: 95%;
+            max-width: 1100px;
+            height: 90vh;
+            margin: 5vh auto;
+            background: white;
+            border-radius: 18px;
+            overflow: hidden;
+            display: flex;
+            box-shadow: 0 10px 35px rgba(0,0,0,0.12);
+        }
+
+        .sidebar {
+            width: 240px;
+            background: #111827;
+            color: white;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .new-chat-btn,
+        .upload-btn {
+            width: 100%;
+            border: 1px solid #4b5563;
+            background: #1f2937;
+            color: white;
+            padding: 11px;
+            border-radius: 9px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .new-chat-btn:hover,
+        .upload-btn:hover {
+            background: #374151;
+        }
+
+        #pdfInput {
+            display: none;
+        }
+
+        .upload-status {
+            font-size: 12px;
+            color: #cbd5e1;
+            margin: 5px 2px 15px;
+            line-height: 1.4;
+        }
+
+        .history-title {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        #historyList {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            padding: 8px;
+            border-radius: 8px;
+            margin-bottom: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+
+        .history-item:hover {
+            background: #1f2937;
+        }
+
+        .history-item.active {
+            background: #374151;
+        }
+
+        .history-title-text {
+            flex: 1;
+            min-width: 0;
+            word-break: break-word;
+        }
+
+        .delete-chat-btn {
+            border: none;
+            background: transparent;
+            color: #cbd5e1;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .delete-chat-btn:hover {
+            background: #4b5563;
+            color: white;
+        }
+
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .header {
+            background: #111827;
+            color: white;
+            padding: 18px 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand h1 {
+            font-size: 24px;
+        }
+
+        .brand p {
+            font-size: 13px;
+            color: #cbd5e1;
+            margin-top: 4px;
+        }
+
+        .clear-btn {
+            background: #374151;
+            color: white;
+            border: none;
+            padding: 9px 13px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .clear-btn:hover {
+            background: #4b5563;
+        }
+
+        #chat {
+            flex: 1;
+            padding: 25px;
+            overflow-y: auto;
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: 18px;
+        }
+
+        .bubble {
+            max-width: 75%;
+            padding: 13px 16px;
+            border-radius: 14px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .ai {
+            justify-content: flex-start;
+        }
+
+        .ai .bubble {
+            background: #f1f5f9;
+            color: #111827;
+            border-bottom-left-radius: 4px;
+        }
+
+        .user {
+            justify-content: flex-end;
+        }
+
+        .user .bubble {
+            background: #111827;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .typing {
+            color: #64748b;
+            font-style: italic;
+        }
+
+        .source-box {
+            margin-top: 10px;
+            padding: 8px;
+            border-top: 1px solid #cbd5e1;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .input-area {
+            padding: 15px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 10px;
+        }
+
+        #question {
+            flex: 1;
+            padding: 13px 15px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            outline: none;
+            font-size: 15px;
+        }
+
+        .send-btn {
+            border: none;
+            background: #111827;
+            color: white;
+            padding: 0 22px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .send-btn:hover {
+            background: #374151;
+        }
+
+        .send-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 700px) {
+            .app {
+                width: 100%;
+                height: 100vh;
+                margin: 0;
+                border-radius: 0;
+            }
+
+            .sidebar {
+                width: 180px;
+            }
+
+            .bubble {
+                max-width: 88%;
+            }
+        }
+
+        @media (max-width: 520px) {
+            .sidebar {
+                width: 150px;
+            }
+
+            .sidebar-title {
+                font-size: 17px;
+            }
+
+            .history-item {
+                font-size: 12px;
+            }
+
+            .brand h1 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="app">
+
+    <aside class="sidebar">
+
+        <div class="sidebar-title">
+            JAA.AI
+        </div>
+
+        <button class="new-chat-btn" onclick="newChat()">
+            + New Chat
+        </button>
+
+        <!-- PDF UPLOAD -->
+        <input
+            type="file"
+            id="pdfInput"
+            accept=".pdf,application/pdf"
+            onchange="uploadPDF()"
+        >
+
+        <button
+            class="upload-btn"
+            onclick="document.getElementById('pdfInput').click()"
+        >
+            📄 Upload PDF
+        </button>
+
+        <div id="uploadStatus" class="upload-status">
+            No PDF uploaded
+        </div>
+
+        <div class="history-title">
+            Chat History
+        </div>
+
+        <div id="historyList"></div>
+
+    </aside>
+
+
+    <main class="main">
+
+        <div class="header">
+
+            <div class="brand">
+                <h1>JAA.AI</h1>
+                <p>AI Assistant • Ollama + RAG</p>
+            </div>
+
+            <button class="clear-btn" onclick="clearChat()">
+                Clear
+            </button>
+
+        </div>
+
+
+        <div id="chat">
+
+            <div class="message ai">
+                <div class="bubble">
+                    Hello! 👋 I am JAA.AI. How can I help you?
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="input-area">
+
+            <input
+                type="text"
+                id="question"
+                placeholder="Ask JAA.AI something..."
+                autocomplete="off"
+            >
+
+            <button
+                class="send-btn"
+                id="sendButton"
+                onclick="askAI()"
+            >
+                Send
+            </button>
+
+        </div>
+
+    </main>
+
+</div>
+
+
+<script>
+
+const input = document.getElementById("question");
+const chat = document.getElementById("chat");
+const sendButton = document.getElementById("sendButton");
+const historyList = document.getElementById("historyList");
+const pdfInput = document.getElementById("pdfInput");
+const uploadStatus = document.getElementById("uploadStatus");
+
+let sessionId = crypto.randomUUID();
+let chatHistory = [];
+
+console.log("JAA.AI Session ID:", sessionId);
+
+
+// =========================
+// PDF UPLOAD
+// =========================
+
+async function uploadPDF() {
+
+    const file = pdfInput.files[0];
+
+    if (!file) {
+        return;
+    }
+
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+
+        uploadStatus.textContent =
+            "❌ Only PDF files are allowed.";
+
+        pdfInput.value = "";
+
+        return;
+    }
+
+    uploadStatus.textContent =
+        "⏳ Uploading and indexing PDF...";
+
+    const formData = new FormData();
+
+    formData.append("file", file);
+
+    try {
+
+        const response = await fetch(
+            "http://127.0.0.1:8000/upload",
+            {
+                method: "POST",
+                body: formData
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.detail || "Upload failed"
+            );
+        }
+
+        uploadStatus.textContent =
+            `✅ ${data.filename} uploaded\n` +
+            `Pages: ${data.pages} | Chunks: ${data.chunks}`;
+
+        addMessage(
+            `PDF uploaded successfully: ${data.filename}\n\n` +
+            `Pages: ${data.pages}\n` +
+            `Chunks: ${data.chunks}\n\n` +
+            `You can now ask questions about this PDF.`,
+            "ai"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "PDF Upload Error:",
+            error
+        );
+
+        uploadStatus.textContent =
+            "❌ PDF upload failed.";
+
+        addMessage(
+            "Sorry, the PDF could not be uploaded. " +
+            "Please make sure FastAPI is running.",
+            "ai"
+        );
+
+    } finally {
+
+        pdfInput.value = "";
+
+    }
+}
+
+
+// =========================
+// HISTORY
+// =========================
+
+function saveHistory() {
+
+    localStorage.setItem(
+        "jaa_ai_history",
+        JSON.stringify(chatHistory)
+    );
+}
+
+
+function loadHistory() {
+
+    const saved =
+        localStorage.getItem("jaa_ai_history");
+
+    if (saved) {
+
+        try {
+            chatHistory = JSON.parse(saved);
+        } catch (error) {
+            chatHistory = [];
+        }
+
+    }
+
+    renderHistory();
+}
+
+
+function renderHistory() {
+
+    historyList.innerHTML = "";
+
+    chatHistory.forEach((item, index) => {
+
+        const historyItem =
+            document.createElement("div");
+
+        historyItem.className =
+            "history-item";
+
+        if (item.id === sessionId) {
+            historyItem.classList.add("active");
+        }
+
+        const title =
+            document.createElement("span");
+
+        title.className =
+            "history-title-text";
+
+        title.textContent =
+            item.title || "New Chat";
+
+        const deleteButton =
+            document.createElement("button");
+
+        deleteButton.className =
+            "delete-chat-btn";
+
+        deleteButton.textContent =
+            "🗑️";
+
+        deleteButton.title =
+            "Delete chat";
+
+        deleteButton.onclick =
+            function(event) {
+
+                event.stopPropagation();
+
+                deleteChat(
+                    item.id,
+                    index
+                );
+
+            };
+
+        historyItem.appendChild(title);
+        historyItem.appendChild(deleteButton);
+
+        historyItem.onclick =
+            function() {
+                loadChat(index);
+            };
+
+        historyList.appendChild(historyItem);
+
+    });
+
+}
+
+
+function createHistoryItem(question) {
+
+    const title =
+        question.length > 30
+            ? question.substring(0, 30) + "..."
+            : question;
+
+    chatHistory.unshift({
+        id: sessionId,
+        title: title
+    });
+
+    saveHistory();
+    renderHistory();
+}
+
+
+// =========================
+// NEW CHAT
+// =========================
+
+function newChat() {
+
+    sessionId =
+        crypto.randomUUID();
+
+    chat.innerHTML = `
+        <div class="message ai">
+            <div class="bubble">
+                Hello! 👋 I am JAA.AI. How can I help you?
+            </div>
+        </div>
+    `;
+
+    input.value = "";
+
+    renderHistory();
+
+    input.focus();
+}
+
+
+// =========================
+// LOAD CHAT
+// =========================
+
+async function loadChat(index) {
+
+    const selected =
+        chatHistory[index];
+
+    if (!selected) {
+        return;
+    }
+
+    sessionId =
+        selected.id;
+
+    chat.innerHTML = `
+        <div class="message ai">
+            <div class="bubble typing">
+                Loading conversation...
+            </div>
+        </div>
+    `;
+
+    try {
+
+        const response =
+            await fetch(
+                `http://127.0.0.1:8000/history/${encodeURIComponent(sessionId)}`
+            );
+
+        if (!response.ok) {
+            throw new Error(
+                "Could not load chat history"
+            );
+        }
+
+        const data =
+            await response.json();
+
+        chat.innerHTML = "";
+
+        if (
+            !data.messages ||
+            data.messages.length === 0
+        ) {
+
+            addMessage(
+                "No messages found in this chat.",
+                "ai"
+            );
+
+        } else {
+
+            data.messages.forEach(
+                message => {
+
+                    addMessage(
+                        message.content,
+                        message.role === "user"
+                            ? "user"
+                            : "ai"
+                    );
+
+                }
+            );
+        }
+
+    } catch (error) {
+
+        console.error(
+            "History loading error:",
+            error
+        );
+
+        chat.innerHTML = `
+            <div class="message ai">
+                <div class="bubble">
+                    Sorry, I could not load this conversation.
+                </div>
+            </div>
+        `;
+    }
+
+    renderHistory();
+
+    input.focus();
+
+    chat.scrollTop =
+        chat.scrollHeight;
+}
+
+
+// =========================
+// DELETE CHAT
+// =========================
+
+async function deleteChat(
+    sessionIdToDelete,
+    index
+) {
+
+    const confirmed =
+        confirm(
+            "Are you sure you want to delete this chat?"
+        );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+
+        const response =
+            await fetch(
+                `http://127.0.0.1:8000/history/${encodeURIComponent(sessionIdToDelete)}`,
+                {
+                    method: "DELETE"
+                }
+            );
+
+        if (!response.ok) {
+            throw new Error(
+                "Could not delete chat"
+            );
+        }
+
+        chatHistory.splice(
+            index,
+            1
+        );
+
+        saveHistory();
+        renderHistory();
+
+        if (
+            sessionId === sessionIdToDelete
+        ) {
+            newChat();
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Delete error:",
+            error
+        );
+
+        alert(
+            "Could not delete this chat."
+        );
+    }
+}
+
+
+// =========================
+// CLEAR CHAT
+// =========================
+
+function clearChat() {
+
+    chat.innerHTML = `
+        <div class="message ai">
+            <div class="bubble">
+                Hello! 👋 I am JAA.AI. How can I help you?
+            </div>
+        </div>
+    `;
+
+    input.focus();
+}
+
+
+// =========================
+// ASK AI
+// =========================
+
+async function askAI() {
+
+    const question =
+        input.value.trim();
+
+    if (!question) {
+        return;
+    }
+
+    addMessage(
+        question,
+        "user"
+    );
+
+    input.value = "";
+
+    sendButton.disabled =
+        true;
+
+    sendButton.textContent =
+        "Thinking...";
+
+    const typingMessage =
+        addMessage(
+            "JAA.AI is thinking...",
+            "ai",
+            true
+        );
+
+    try {
+
+        const response =
+            await fetch(
+                `http://127.0.0.1:8000/ask?question=${encodeURIComponent(question)}&session_id=${encodeURIComponent(sessionId)}`
+            );
+
+        if (!response.ok) {
+            throw new Error(
+                "Server error"
+            );
+        }
+
+        const data =
+            await response.json();
+
+        const bubble =
+            typingMessage.querySelector(
+                ".bubble"
+            );
+
+        bubble.textContent =
+            data.answer;
+
+        if (
+            data.sources &&
+            data.sources.length > 0
+        ) {
+
+            const sourceBox =
+                document.createElement(
+                    "div"
+                );
+
+            sourceBox.className =
+                "source-box";
+
+            sourceBox.textContent =
+                "📄 Source: " +
+                data.sources.join(", ");
+
+            bubble.appendChild(
+                sourceBox
+            );
+        }
+
+        const alreadyExists =
+            chatHistory.some(
+                item =>
+                    item.id === sessionId
+            );
+
+        if (!alreadyExists) {
+
+            createHistoryItem(
+                question
+            );
+        }
+
+    } catch (error) {
+
+        console.error(
+            "JAA.AI Error:",
+            error
+        );
+
+        typingMessage
+            .querySelector(
+                ".bubble"
+            )
+            .textContent =
+            "Sorry, I could not connect to JAA.AI. " +
+            "Please make sure the FastAPI server is running.";
+
+    } finally {
+
+        sendButton.disabled =
+            false;
+
+        sendButton.textContent =
+            "Send";
+
+        input.focus();
+
+    }
+
+    chat.scrollTop =
+        chat.scrollHeight;
+}
+
+
+// =========================
+// ADD MESSAGE
+// =========================
+
+function addMessage(
+    text,
+    type,
+    typing = false
+) {
+
+    const message =
+        document.createElement(
+            "div"
+        );
+
+    message.className =
+        `message ${type}`;
+
+    const bubble =
+        document.createElement(
+            "div"
+        );
+
+    bubble.className =
+        "bubble";
+
+    if (typing) {
+        bubble.classList.add(
+            "typing"
+        );
+    }
+
+    bubble.textContent =
+        text;
+
+    message.appendChild(
+        bubble
+    );
+
+    chat.appendChild(
+        message
+    );
+
+    chat.scrollTop =
+        chat.scrollHeight;
+
+    return message;
+}
+
+
+// =========================
+// ENTER KEY
+// =========================
+
+input.addEventListener(
+    "keypress",
+    function(event) {
+
+        if (
+            event.key === "Enter" &&
+            !sendButton.disabled
+        ) {
+            askAI();
+        }
+
+    }
+);
+
+
+loadHistory();
+
+</script>
+
+</body>
+</html>

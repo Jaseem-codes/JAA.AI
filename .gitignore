@@ -1,0 +1,8 @@
+﻿venv/
+_pycache_/
+*.pyc
+.env
+chroma_db/
+uploads/
+*.db
+*.pdf

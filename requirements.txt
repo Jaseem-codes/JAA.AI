@@ -1,0 +1,16 @@
+langchain
+langgraph
+chromadb
+fastapi
+uvicorn
+streamlit
+pymupdf
+sentence-transformers
+python-dotenv
+numpy
+pandas
+pydantic
+httpx
+langchain-community
+langchain-text-splitters
+langchain-chroma

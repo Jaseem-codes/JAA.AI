@@ -1,0 +1,3 @@
+JAA.AI is an AI assistant project.
+It uses Python, FastAPI, RAG and an Agent.
+JAA.AI can answer questions using information from documents.
