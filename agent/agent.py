@@ -8,18 +8,34 @@ from database import SessionLocal, ChatMessage
 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
-from langchain_ollama import ChatOllama
+from langchain_groq import ChatGroq
 
 from tavily import TavilyClient
 
 
+# =========================
+# ENVIRONMENT
+# =========================
+
 load_dotenv()
 
+
+# =========================
+# PATHS
+# =========================
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CHROMA_DIR = BASE_DIR / "chroma_db"
 
-conversation_histories: Dict[str, List[Dict[str, str]]] = {}
+
+# =========================
+# MEMORY
+# =========================
+
+conversation_histories: Dict[
+    str,
+    List[Dict[str, str]]
+] = {}
 
 MAX_HISTORY = 10
 
@@ -28,11 +44,11 @@ MAX_HISTORY = 10
 # TAVILY WEB SEARCH
 # =========================
 
-def web_search(query, max_results=3):
+def web_search(query: str, max_results: int = 3):
 
     api_key = os.getenv("TAVILY_API_KEY")
 
-    if not api_key or api_key == "...":
+    if not api_key:
         return []
 
     try:
@@ -85,7 +101,10 @@ def get_vector_store():
 # DOCUMENT SEARCH
 # =========================
 
-def search_documents(query, k=3):
+def search_documents(
+    query: str,
+    k: int = 3
+):
 
     vector_store = get_vector_store()
 
@@ -99,7 +118,9 @@ def search_documents(query, k=3):
 # LOAD CHAT HISTORY
 # =========================
 
-def load_history_from_database(session_id):
+def load_history_from_database(
+    session_id: str
+):
 
     db = SessionLocal()
 
@@ -110,7 +131,9 @@ def load_history_from_database(session_id):
             .filter(
                 ChatMessage.session_id == session_id
             )
-            .order_by(ChatMessage.id.asc())
+            .order_by(
+                ChatMessage.id.asc()
+            )
             .all()
         )
 
@@ -132,9 +155,9 @@ def load_history_from_database(session_id):
 # =========================
 
 def save_message_to_database(
-    session_id,
-    role,
-    content
+    session_id: str,
+    role: str,
+    content: str
 ):
 
     db = SessionLocal()
@@ -148,7 +171,6 @@ def save_message_to_database(
         )
 
         db.add(message)
-
         db.commit()
 
     finally:
@@ -157,12 +179,40 @@ def save_message_to_database(
 
 
 # =========================
+# CLOUD LLM
+# =========================
+
+def get_llm():
+
+    api_key = os.getenv(
+        "GROQ_API_KEY"
+    )
+
+    if not api_key:
+
+        raise RuntimeError(
+            "GROQ_API_KEY is not configured."
+        )
+
+    model_name = os.getenv(
+        "GROQ_MODEL",
+        "llama-3.3-70b-versatile"
+    )
+
+    return ChatGroq(
+        api_key=api_key,
+        model=model_name,
+        temperature=0
+    )
+
+
+# =========================
 # ASK AI
 # =========================
 
 def ask_ai(
-    query,
-    session_id="default"
+    query: str,
+    session_id: str = "default"
 ):
 
     # =========================
@@ -171,14 +221,16 @@ def ask_ai(
 
     if session_id not in conversation_histories:
 
-        conversation_histories[session_id] = (
-            load_history_from_database(
-                session_id
-            )
+        conversation_histories[
+            session_id
+        ] = load_history_from_database(
+            session_id
         )
 
     conversation_history = (
-        conversation_histories[session_id]
+        conversation_histories[
+            session_id
+        ]
     )
 
 
@@ -204,7 +256,8 @@ def ask_ai(
 
 
     documents = [
-        doc for doc, score in results
+        document
+        for document, score in results
     ]
 
 
@@ -270,17 +323,7 @@ URL: {url}
 
 
     # =========================
-    # LOCAL OLLAMA MODEL
-    # =========================
-
-    llm = ChatOllama(
-        model="llama3.2",
-        temperature=0
-    )
-
-
-    # =========================
-    # JAA.AI PROMPT
+    # PROMPT
     # =========================
 
     prompt = f"""
@@ -326,8 +369,10 @@ Provide the best possible answer.
 
 
     # =========================
-    # GET AI RESPONSE
+    # GET RESPONSE
     # =========================
+
+    llm = get_llm()
 
     response = llm.invoke(
         prompt
@@ -340,11 +385,12 @@ Provide the best possible answer.
     # SAVE USER MESSAGE
     # =========================
 
-    conversation_history.append({
-        "role": "user",
-        "content": query
-    })
-
+    conversation_history.append(
+        {
+            "role": "user",
+            "content": query
+        }
+    )
 
     save_message_to_database(
         session_id,
@@ -357,11 +403,12 @@ Provide the best possible answer.
     # SAVE AI RESPONSE
     # =========================
 
-    conversation_history.append({
-        "role": "assistant",
-        "content": answer
-    })
-
+    conversation_history.append(
+        {
+            "role": "assistant",
+            "content": answer
+        }
+    )
 
     save_message_to_database(
         session_id,
@@ -385,13 +432,20 @@ Provide the best possible answer.
     # SOURCES
     # =========================
 
-    sources = [
-        document.metadata.get(
+    sources = []
+
+    for document in documents:
+
+        source = document.metadata.get(
             "source",
             "Unknown document"
         )
-        for document in documents
-    ]
+
+        if source not in sources:
+
+            sources.append(
+                source
+            )
 
 
     for result in web_results:
@@ -400,7 +454,7 @@ Provide the best possible answer.
             "url"
         )
 
-        if url:
+        if url and url not in sources:
 
             sources.append(
                 url
@@ -408,7 +462,7 @@ Provide the best possible answer.
 
 
     # =========================
-    # RETURN RESULT
+    # RETURN
     # =========================
 
     return {
@@ -423,9 +477,9 @@ Provide the best possible answer.
 
 if __name__ == "__main__":
 
-    answer = ask_ai(
+    result = ask_ai(
         "What is artificial intelligence?",
         "test"
     )
 
-    print(answer)
+    print(result)
