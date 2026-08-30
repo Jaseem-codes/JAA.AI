@@ -2,9 +2,9 @@ JAA.AI 🤖
 
 Production-Grade AI Assistant with RAG, Web Search & Conversational Memory
 
-JAA.AI is an AI-powered assistant built with Python, FastAPI, RAG, ChromaDB, Groq LLM, Tavily Web Search and PDF document processing.
+JAA.AI is a production-oriented AI assistant built with Python, FastAPI, Retrieval-Augmented Generation (RAG), ChromaDB, Groq LLM, Tavily Web Search, HuggingFace Embeddings, and PDF document processing.
 
-It can answer general questions, search uploaded PDF documents using Retrieval-Augmented Generation (RAG), perform web searches for external information, and maintain conversational history.
+It can answer general questions, retrieve information from uploaded PDF documents, use web search for external information, and maintain persistent conversational history.
 
 🌐 Live Demo: https://jaa-ai.onrender.com
 
@@ -14,37 +14,37 @@ It can answer general questions, search uploaded PDF documents using Retrieval-A
 
 - 🤖 AI-powered conversational assistant
 - 🧠 Retrieval-Augmented Generation (RAG)
-- 📄 PDF document upload
+- 📄 PDF upload and document processing
 - 🔎 Semantic document search using embeddings
 - 🗃️ ChromaDB vector database
 - 🌐 Tavily web search integration
 - 💬 Conversational memory
 - 🕘 Persistent chat history
-- 🗑️ Delete chat functionality
-- ➕ New chat sessions
-- 🔐 Environment-based API key configuration
+- 🗑️ Chat deletion
+- ➕ Multiple chat sessions
+- 🔐 Environment-based secret configuration
 - ⚡ FastAPI REST API
-- 🌍 Cloud deployment with Render
+- 🌍 Render cloud deployment
 - 📱 Responsive web interface
 
 ---
 
-🏗️ Architecture
+🏗️ System Architecture
 
                     ┌─────────────────────┐
-                    │     User / Browser  │
+                    │    User / Browser   │
                     └──────────┬──────────┘
                                │
                                ▼
                     ┌─────────────────────┐
                     │   JAA.AI Frontend   │
-                    │      HTML/CSS/JS     │
+                    │     HTML/CSS/JS     │
                     └──────────┬──────────┘
                                │
                                ▼
                     ┌─────────────────────┐
                     │       FastAPI       │
-                    │      Backend API    │
+                    │      REST API       │
                     └──────────┬──────────┘
                                │
               ┌────────────────┼────────────────┐
@@ -53,47 +53,65 @@ It can answer general questions, search uploaded PDF documents using Retrieval-A
         ┌───────────┐    ┌────────────┐   ┌────────────┐
         │  ChromaDB │    │    Groq    │   │   Tavily   │
         │    RAG    │    │    LLM     │   │ Web Search │
-        └───────────┘    └────────────┘   └────────────┘
-              ▲
+        └─────▲─────┘    └────────────┘   └────────────┘
               │
-        ┌─────────────┐
-        │ PDF Upload  │
-        │ + Embeddings│
-        └─────────────┘
+              │
+        ┌─────┴─────────┐
+        │ PDF Processing│
+        │ + Embeddings  │
+        └───────────────┘
 
 ---
 
-🧠 How RAG Works
+🧠 RAG Pipeline
 
-When a user uploads a PDF:
+When a user uploads a PDF, JAA.AI processes it through the following pipeline:
 
-PDF
- │
- ▼
+PDF Upload
+    ↓
 Text Extraction
- │
- ▼
+    ↓
 Text Chunking
- │
- ▼
+    ↓
 HuggingFace Embeddings
- │
- ▼
+    ↓
 ChromaDB
- │
- ▼
-Semantic Search
- │
- ▼
+    ↓
+Semantic Similarity Search
+    ↓
 Relevant Context
- │
- ▼
+    ↓
 Groq LLM
- │
- ▼
-AI Answer
+    ↓
+AI Response
 
-This allows JAA.AI to answer questions using information contained inside uploaded documents.
+This enables the assistant to answer questions using information retrieved from uploaded documents rather than relying only on the LLM's general knowledge.
+
+---
+
+🔄 AI Response Pipeline
+
+JAA.AI combines multiple sources of information:
+
+                 ┌─────────────────────┐
+                 │ Conversation History│
+                 └──────────┬──────────┘
+                            │
+                 ┌──────────▼──────────┐
+                 │ Document Information│
+                 └──────────┬──────────┘
+                            │
+                 ┌──────────▼──────────┐
+                 │   Web Information   │
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                     ┌────────────┐
+                     │  Groq LLM  │
+                     └─────┬──────┘
+                           │
+                           ▼
+                     Final Answer
 
 ---
 
@@ -138,8 +156,8 @@ Frontend
 
 Deployment
 
-- Render
 - GitHub
+- Render
 
 ---
 
@@ -175,37 +193,16 @@ JAA.AI/
 
 ⚙️ API Endpoints
 
-Health Check
+Method| Endpoint| Description
+GET| "/health"| Check API health
+GET| "/ask"| Ask JAA.AI a question
+POST| "/upload"| Upload and index a PDF
+GET| "/history/{session_id}"| Retrieve chat history
+DELETE| "/history/{session_id}"| Delete a conversation
 
-GET /health
+Example
 
-Checks whether the JAA.AI backend is running.
-
-Ask AI
-
-GET /ask
-
-Example:
-
-/ask?question=What%20is%20DBMS?
-
-Upload PDF
-
-POST /upload
-
-Uploads and indexes a PDF document.
-
-Chat History
-
-GET /history/{session_id}
-
-Returns conversation history.
-
-Delete Chat
-
-DELETE /history/{session_id}
-
-Deletes a conversation.
+GET /ask?question=What%20is%20DBMS?
 
 ---
 
@@ -228,21 +225,21 @@ Never commit real API keys or secrets to GitHub.
 git clone https://github.com/Jaseem-codes/JAA.AI.git
 cd JAA.AI
 
-2. Create virtual environment
-
-Windows:
+2. Create a virtual environment
 
 python -m venv venv
 
-Activate:
+3. Activate the environment
+
+Windows:
 
 venv\Scripts\activate
 
-3. Install dependencies
+4. Install dependencies
 
 pip install -r requirements.txt
 
-4. Configure environment variables
+5. Configure environment variables
 
 Create ".env" and add:
 
@@ -250,7 +247,7 @@ GROQ_API_KEY=your_groq_api_key
 GROQ_MODEL=llama-3.3-70b-versatile
 TAVILY_API_KEY=your_tavily_api_key
 
-5. Run the application
+6. Run the application
 
 python -m uvicorn app.main:app --reload
 
@@ -260,25 +257,27 @@ http://127.0.0.1:8000
 
 ---
 
-📄 PDF Workflow
+📄 PDF Processing Workflow
 
 1. Open JAA.AI.
 2. Click Upload PDF.
-3. Select a PDF file.
-4. JAA.AI extracts the text.
-5. The text is divided into chunks.
-6. Embeddings are generated.
-7. Chunks are stored in ChromaDB.
-8. Ask questions about the uploaded PDF.
-9. Relevant document information is retrieved before generating the answer.
+3. Select a PDF document.
+4. PyMuPDF extracts the text.
+5. Text is divided into smaller chunks.
+6. HuggingFace generates embeddings.
+7. Embeddings and document chunks are stored in ChromaDB.
+8. User asks a question.
+9. Relevant document chunks are retrieved.
+10. Retrieved context is provided to the Groq LLM.
+11. JAA.AI generates the final answer.
 
 ---
 
 🌐 Web Search
 
-JAA.AI can also use Tavily to retrieve external web information.
+JAA.AI can use Tavily Web Search when external information is required.
 
-This allows the assistant to combine:
+The assistant can combine:
 
 Conversation History
         +
@@ -296,12 +295,51 @@ Web Information
 
 Each chat session receives a unique session ID.
 
-JAA.AI uses this ID to maintain conversation history and allows users to:
+This allows JAA.AI to:
 
-- Create new chats
-- Continue previous chats
-- View chat history
+- Create new conversations
+- Continue previous conversations
+- Store conversation history
+- Load previous messages
 - Delete conversations
+
+Chat history is persisted using SQLite and SQLAlchemy.
+
+---
+
+🔒 Security
+
+The application includes basic security and validation mechanisms:
+
+- PDF-only upload validation
+- Maximum PDF upload size
+- PDF signature validation
+- Question length validation
+- Session ID validation
+- Server-side generated filenames
+- Environment variables for secrets
+- CORS configuration
+- API error handling
+- Protection against exposing internal configuration
+
+---
+
+🧪 Testing
+
+The application has been tested for:
+
+- FastAPI startup
+- Health endpoint
+- AI question answering
+- PDF upload
+- PDF indexing
+- RAG-based question answering
+- Chat history
+- New chat sessions
+- Chat deletion
+- Frontend/backend communication
+- Render deployment
+- Production health endpoint
 
 ---
 
@@ -313,49 +351,13 @@ Production URL:
 
 https://jaa-ai.onrender.com
 
-The project uses GitHub-based automatic deployment.
-
-Whenever changes are pushed to the configured branch, Render can automatically build and deploy the latest version.
-
----
-
-🔒 Security Considerations
-
-The application includes several basic security measures:
-
-- PDF-only upload validation
-- Maximum PDF upload size
-- PDF signature validation
-- Question length validation
-- Session ID validation
-- Environment variables for secrets
-- CORS configuration
-- Server-side generated filenames
-- Error handling for API operations
-
----
-
-🧪 Testing
-
-The project has been tested for:
-
-- FastAPI server startup
-- Health endpoint
-- AI question answering
-- PDF upload
-- PDF indexing
-- RAG-based question answering
-- Chat history
-- New chat
-- Chat deletion
-- Render deployment
-- Production frontend/backend communication
+The project uses GitHub-based deployment. Code changes pushed to the configured branch can trigger a new Render deployment.
 
 ---
 
 🎯 Future Improvements
 
-Possible future improvements include:
+Planned or possible improvements include:
 
 - Streaming AI responses
 - Better source citations
@@ -363,12 +365,11 @@ Possible future improvements include:
 - User authentication
 - PostgreSQL production database
 - Advanced document metadata filtering
-- Improved UI/UX
-- Automated evaluation of RAG responses
+- Automated RAG evaluation
 - Docker containerization
 - CI/CD pipeline
 - Rate limiting
-- Observability and logging
+- Observability and structured logging
 - Role-based access control
 
 ---
@@ -377,7 +378,7 @@ Possible future improvements include:
 
 Jaseem Ahmad
 
-B.Tech Computer Science & Engineering
+B.Tech — Computer Science & Engineering
 
 ---
 
@@ -401,4 +402,4 @@ REST API
 +
 Cloud Deployment
 
-The goal is to build a scalable foundation for a production-oriented AI assistant.
+The goal is to provide a strong foundation for a scalable, production-oriented AI assistant while demonstrating practical skills in Generative AI, RAG systems, backend development, vector databases, API integration, and cloud deployment.
