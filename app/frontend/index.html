@@ -183,6 +183,7 @@
             border-radius: 14px;
             line-height: 1.5;
             word-wrap: break-word;
+            white-space: pre-wrap;
         }
 
         .ai {
@@ -216,6 +217,7 @@
             border-top: 1px solid #cbd5e1;
             font-size: 12px;
             color: #64748b;
+            white-space: normal;
         }
 
         .input-area {
@@ -304,7 +306,6 @@
             + New Chat
         </button>
 
-        <!-- PDF UPLOAD -->
         <input
             type="file"
             id="pdfInput"
@@ -338,7 +339,7 @@
 
             <div class="brand">
                 <h1>JAA.AI</h1>
-                <p>AI Assistant • Ollama + RAG</p>
+                <p>AI Assistant • Groq + RAG</p>
             </div>
 
             <button class="clear-btn" onclick="clearChat()">
@@ -385,6 +386,21 @@
 
 <script>
 
+/*
+ * IMPORTANT:
+ * Use the current website URL as the API base.
+ *
+ * Local:
+ * http://127.0.0.1:8000
+ *
+ * Render:
+ * https://jaa-ai.onrender.com
+ *
+ * This automatically works in both places.
+ */
+const API_BASE = window.location.origin;
+
+
 const input = document.getElementById("question");
 const chat = document.getElementById("chat");
 const sendButton = document.getElementById("sendButton");
@@ -395,6 +411,7 @@ const uploadStatus = document.getElementById("uploadStatus");
 let sessionId = crypto.randomUUID();
 let chatHistory = [];
 
+console.log("JAA.AI API:", API_BASE);
 console.log("JAA.AI Session ID:", sessionId);
 
 
@@ -430,7 +447,7 @@ async function uploadPDF() {
     try {
 
         const response = await fetch(
-            "http://127.0.0.1:8000/upload",
+            `${API_BASE}/upload`,
             {
                 method: "POST",
                 body: formData
@@ -469,8 +486,7 @@ async function uploadPDF() {
             "❌ PDF upload failed.";
 
         addMessage(
-            "Sorry, the PDF could not be uploaded. " +
-            "Please make sure FastAPI is running.",
+            "Sorry, the PDF could not be uploaded.",
             "ai"
         );
 
@@ -648,7 +664,7 @@ async function loadChat(index) {
 
         const response =
             await fetch(
-                `http://127.0.0.1:8000/history/${encodeURIComponent(sessionId)}`
+                `${API_BASE}/history/${encodeURIComponent(sessionId)}`
             );
 
         if (!response.ok) {
@@ -735,7 +751,7 @@ async function deleteChat(
 
         const response =
             await fetch(
-                `http://127.0.0.1:8000/history/${encodeURIComponent(sessionIdToDelete)}`,
+                `${API_BASE}/history/${encodeURIComponent(sessionIdToDelete)}`,
                 {
                     method: "DELETE"
                 }
@@ -830,12 +846,27 @@ async function askAI() {
 
         const response =
             await fetch(
-                `http://127.0.0.1:8000/ask?question=${encodeURIComponent(question)}&session_id=${encodeURIComponent(sessionId)}`
+                `${API_BASE}/ask?question=${encodeURIComponent(question)}&session_id=${encodeURIComponent(sessionId)}`
             );
 
         if (!response.ok) {
+
+            let errorMessage =
+                "Server error";
+
+            try {
+
+                const errorData =
+                    await response.json();
+
+                errorMessage =
+                    errorData.detail ||
+                    errorMessage;
+
+            } catch (e) {}
+
             throw new Error(
-                "Server error"
+                errorMessage
             );
         }
 
@@ -897,8 +928,8 @@ async function askAI() {
                 ".bubble"
             )
             .textContent =
-            "Sorry, I could not connect to JAA.AI. " +
-            "Please make sure the FastAPI server is running.";
+            "Sorry, JAA.AI could not process your request. " +
+            error.message;
 
     } finally {
 
