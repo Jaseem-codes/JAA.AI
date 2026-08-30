@@ -15,3 +15,4 @@ langchain-community
 langchain-text-splitters
 langchain-chroma
 tavily-python
+langchain-ollama
