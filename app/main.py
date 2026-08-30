@@ -59,17 +59,14 @@ MAX_SESSION_ID_LENGTH = 100
 # =========================
 # CORS
 # =========================
-#
-# Local development:
-# frontend and API both run
-# on 127.0.0.1:8000.
-#
-# Keep localhost origins only.
-#
 
 ALLOWED_ORIGINS = [
-    "http://127.0.0.1:8000",
-    "http://localhost:8000"
+    origin.strip()
+    for origin in os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://127.0.0.1:8000,http://localhost:8000"
+    ).split(",")
+    if origin.strip()
 ]
 
 app.add_middleware(
@@ -342,6 +339,8 @@ async def upload_document(
         )
 
 
+    file_path = None
+
     try:
 
         # Read PDF
@@ -373,9 +372,6 @@ async def upload_document(
 
 
         # PDF signature check
-        #
-        # Real PDF files normally
-        # start with %PDF-
 
         if not content.startswith(
             b"%PDF-"
@@ -383,16 +379,11 @@ async def upload_document(
 
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "Invalid PDF file."
-                )
+                detail="Invalid PDF file."
             )
 
 
         # Generate safe server-side filename
-        #
-        # Never trust the user's filename
-        # for the actual storage path.
 
         safe_filename = (
             f"{uuid.uuid4().hex}.pdf"
@@ -457,7 +448,7 @@ async def upload_document(
 
         try:
 
-            if file_path.exists():
+            if file_path and file_path.exists():
 
                 file_path.unlink()
 
