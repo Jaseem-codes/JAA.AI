@@ -6,11 +6,15 @@ from dotenv import load_dotenv
 
 from database import SessionLocal, ChatMessage
 
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_groq import ChatGroq
 
 from tavily import TavilyClient
+
+from document_ingest import (
+    LightweightEmbeddings,
+    COLLECTION_NAME
+)
 
 
 # =========================
@@ -25,6 +29,7 @@ load_dotenv()
 # =========================
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
 CHROMA_DIR = BASE_DIR / "chroma_db"
 
 
@@ -44,9 +49,14 @@ MAX_HISTORY = 10
 # TAVILY WEB SEARCH
 # =========================
 
-def web_search(query: str, max_results: int = 3):
+def web_search(
+    query: str,
+    max_results: int = 3
+):
 
-    api_key = os.getenv("TAVILY_API_KEY")
+    api_key = os.getenv(
+        "TAVILY_API_KEY"
+    )
 
     if not api_key:
         return []
@@ -84,14 +94,14 @@ def web_search(query: str, max_results: int = 3):
 
 def get_vector_store():
 
-    embeddings = HuggingFaceEmbeddings(
-        model_name="all-MiniLM-L6-v2"
-    )
+    embeddings = LightweightEmbeddings()
 
     vector_store = Chroma(
-        collection_name="jaa_ai_documents",
+        collection_name=COLLECTION_NAME,
         embedding_function=embeddings,
-        persist_directory=str(CHROMA_DIR)
+        persist_directory=str(
+            CHROMA_DIR
+        )
     )
 
     return vector_store
@@ -129,7 +139,8 @@ def load_history_from_database(
         messages = (
             db.query(ChatMessage)
             .filter(
-                ChatMessage.session_id == session_id
+                ChatMessage.session_id
+                == session_id
             )
             .order_by(
                 ChatMessage.id.asc()
@@ -421,7 +432,9 @@ Provide the best possible answer.
     # LIMIT MEMORY
     # =========================
 
-    if len(conversation_history) > MAX_HISTORY * 2:
+    if len(
+        conversation_history
+    ) > MAX_HISTORY * 2:
 
         del conversation_history[
             :-MAX_HISTORY * 2
