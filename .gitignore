@@ -1,8 +1,9 @@
 ﻿venv/
-_pycache_/
+__pycache__/
 *.pyc
 .env
 chroma_db/
 uploads/
 *.db
 *.pdf
+.pytest_cache/
