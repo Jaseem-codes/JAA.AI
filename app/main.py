@@ -2,16 +2,22 @@ from pathlib import Path
 from typing import Optional
 import os
 import uuid
+import re
 
 from fastapi import (
     FastAPI,
     HTTPException,
     UploadFile,
-    File
+    File,
+    Request
 )
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
 
 from document_ingest import ingest_pdf
 from agent.agent import ask_ai
@@ -19,6 +25,15 @@ from agent.agent import ask_ai
 from database import (
     delete_chat,
     get_chat_history
+)
+
+
+# =========================
+# RATE LIMITER
+# =========================
+
+limiter = Limiter(
+    key_func=get_remote_address
 )
 
 
@@ -31,6 +46,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
+app.state.limiter = limiter
+
+app.add_exception_handler(
+    429,
+    _rate_limit_exceeded_handler
+)
+
 
 # =========================
 # DIRECTORIES
@@ -39,9 +61,7 @@ app = FastAPI(
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 UPLOAD_DIR = BASE_DIR / "uploads"
-UPLOAD_DIR.mkdir(
-    exist_ok=True
-)
+UPLOAD_DIR.mkdir(exist_ok=True)
 
 FRONTEND_DIR = BASE_DIR / "app" / "frontend"
 INDEX_FILE = FRONTEND_DIR / "index.html"
@@ -85,6 +105,91 @@ app.add_middleware(
 
 
 # =========================
+# TRUSTED HOST
+# =========================
+
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv(
+        "ALLOWED_HOSTS",
+        "127.0.0.1,localhost"
+    ).split(",")
+    if host.strip()
+]
+
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=ALLOWED_HOSTS
+)
+
+
+# =========================
+# SECURITY HEADERS
+# =========================
+
+@app.middleware("http")
+async def security_headers(
+    request: Request,
+    call_next
+):
+
+    response = await call_next(request)
+
+    response.headers[
+        "X-Content-Type-Options"
+    ] = "nosniff"
+
+    response.headers[
+        "X-Frame-Options"
+    ] = "DENY"
+
+    response.headers[
+        "Referrer-Policy"
+    ] = "strict-origin-when-cross-origin"
+
+    response.headers[
+        "Permissions-Policy"
+    ] = "camera=(), microphone=(), geolocation=()"
+
+    return response
+
+
+# =========================
+# SESSION VALIDATION
+# =========================
+
+def validate_session_id(
+    session_id: Optional[str]
+) -> str:
+
+    if not session_id:
+        return "default"
+
+    session_id = session_id.strip()
+
+    if not session_id:
+        return "default"
+
+    if len(session_id) > MAX_SESSION_ID_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid session ID."
+        )
+
+    # Allow only safe characters
+    if not re.fullmatch(
+        r"[A-Za-z0-9_-]+",
+        session_id
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid session ID."
+        )
+
+    return session_id
+
+
+# =========================
 # HOME
 # =========================
 
@@ -108,7 +213,10 @@ def home():
 # =========================
 
 @app.get("/health")
-def health():
+@limiter.limit("30/minute")
+def health(
+    request: Request
+):
 
     return {
         "status": "healthy",
@@ -122,7 +230,9 @@ def health():
 # =========================
 
 @app.get("/ask")
+@limiter.limit("10/minute")
 def ask(
+    request: Request,
     question: str,
     session_id: Optional[str] = "default"
 ):
@@ -149,20 +259,11 @@ def ask(
         )
 
 
-    # Validate session ID
+    # Validate session
 
-    if not session_id:
-
-        session_id = "default"
-
-    session_id = session_id.strip()
-
-    if len(session_id) > MAX_SESSION_ID_LENGTH:
-
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid session ID."
-        )
+    session_id = validate_session_id(
+        session_id
+    )
 
 
     try:
@@ -200,24 +301,15 @@ def ask(
 # =========================
 
 @app.get("/history/{session_id}")
+@limiter.limit("20/minute")
 def get_history(
+    request: Request,
     session_id: str
 ):
 
-    if not session_id:
-
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid session ID."
-        )
-
-    if len(session_id) > MAX_SESSION_ID_LENGTH:
-
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid session ID."
-        )
-
+    session_id = validate_session_id(
+        session_id
+    )
 
     try:
 
@@ -257,24 +349,15 @@ def get_history(
 # =========================
 
 @app.delete("/history/{session_id}")
+@limiter.limit("10/minute")
 def delete_history(
+    request: Request,
     session_id: str
 ):
 
-    if not session_id:
-
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid session ID."
-        )
-
-    if len(session_id) > MAX_SESSION_ID_LENGTH:
-
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid session ID."
-        )
-
+    session_id = validate_session_id(
+        session_id
+    )
 
     try:
 
@@ -310,7 +393,9 @@ def delete_history(
 # =========================
 
 @app.post("/upload")
+@limiter.limit("5/minute")
 async def upload_document(
+    request: Request,
     file: UploadFile = File(...)
 ):
 
@@ -383,7 +468,7 @@ async def upload_document(
             )
 
 
-        # Generate safe server-side filename
+        # Generate safe server filename
 
         safe_filename = (
             f"{uuid.uuid4().hex}.pdf"
@@ -405,7 +490,7 @@ async def upload_document(
             f.write(content)
 
 
-        # Index PDF in ChromaDB
+        # Index PDF
 
         result = ingest_pdf(
             file_path
@@ -443,8 +528,7 @@ async def upload_document(
         )
 
 
-        # Remove partially saved file
-        # if indexing fails.
+        # Delete failed upload
 
         try:
 
