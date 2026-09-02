@@ -383,13 +383,31 @@ Provide the best possible answer.
     # GET RESPONSE
     # =========================
 
-    llm = get_llm()
+    try:
 
-    response = llm.invoke(
-        prompt
-    )
+        llm = get_llm()
 
-    answer = response.content
+        response = llm.invoke(
+            prompt
+        )
+
+        answer = response.content
+
+    except Exception as e:
+
+        print(
+            "LLM ERROR:",
+            repr(e)
+        )
+
+        return {
+            "answer": (
+                "Sorry, JAA.AI is temporarily "
+                "unable to generate a response. "
+                "Please try again in a moment."
+            ),
+            "sources": []
+        }
 
 
     # =========================
