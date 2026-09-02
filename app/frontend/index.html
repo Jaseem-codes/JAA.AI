@@ -248,13 +248,30 @@ body {
     color: #64748b;
 }
 
+/* AI VOICE BUTTON */
+
+.voice-answer-btn {
+    margin-top: 10px;
+    border: 1px solid #cbd5e1;
+    background: white;
+    color: #111827;
+    padding: 7px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.voice-answer-btn:hover {
+    background: #e2e8f0;
+}
+
 /* INPUT */
 
 .input-area {
     padding: 15px 18px;
     border-top: 1px solid #e5e7eb;
     display: flex;
-    gap: 10px;
+    gap: 8px;
     background: #ffffff;
 }
 
@@ -269,6 +286,28 @@ body {
 
 #question:focus {
     border-color: #64748b;
+}
+
+/* VOICE INPUT BUTTON */
+
+.mic-btn {
+    width: 48px;
+    border: 1px solid #d1d5db;
+    background: white;
+    color: #111827;
+    border-radius: 11px;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.mic-btn:hover {
+    background: #f1f5f9;
+}
+
+.mic-btn.listening {
+    background: #111827;
+    color: white;
+    border-color: #111827;
 }
 
 .send-btn {
@@ -288,6 +327,21 @@ body {
 .send-btn:disabled {
     background: #9ca3af;
     cursor: not-allowed;
+}
+
+/* VOICE STATUS */
+
+.voice-status {
+    position: absolute;
+    bottom: 78px;
+    right: 25px;
+    background: #111827;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    display: none;
+    z-index: 10;
 }
 
 /* MOBILE */
@@ -349,6 +403,14 @@ body {
 
     .send-btn {
         padding: 0 15px;
+    }
+
+    .mic-btn {
+        width: 44px;
+    }
+
+    .input-area {
+        padding: 10px;
     }
 }
 </style>
@@ -440,6 +502,11 @@ body {
         </div>
 
 
+        <div class="voice-status" id="voiceStatus">
+            🎤 Listening...
+        </div>
+
+
         <div class="input-area">
 
             <input
@@ -448,6 +515,15 @@ body {
                 placeholder="Ask JAA.AI something..."
                 autocomplete="off"
             >
+
+            <button
+                class="mic-btn"
+                id="micButton"
+                onclick="startVoiceInput()"
+                title="Speak"
+            >
+                🎤
+            </button>
 
             <button
                 class="send-btn"
@@ -473,11 +549,237 @@ const historyList = document.getElementById("historyList");
 const pdfInput = document.getElementById("pdfInput");
 const uploadStatus = document.getElementById("uploadStatus");
 
+const micButton = document.getElementById("micButton");
+const voiceStatus = document.getElementById("voiceStatus");
+
 const API_BASE = window.location.origin;
 
 let sessionId = crypto.randomUUID();
 
 let chatHistory = [];
+
+
+// =========================
+// VOICE RECOGNITION
+// =========================
+
+const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+let recognition = null;
+let isListening = false;
+
+if (SpeechRecognition) {
+
+    recognition = new SpeechRecognition();
+
+    recognition.continuous = false;
+
+    recognition.interimResults = true;
+
+    recognition.lang = "en-IN";
+
+
+    recognition.onstart = function() {
+
+        isListening = true;
+
+        micButton.classList.add("listening");
+
+        micButton.textContent = "⏹️";
+
+        voiceStatus.style.display = "block";
+
+        voiceStatus.textContent =
+            "🎤 Listening...";
+    };
+
+
+    recognition.onresult = function(event) {
+
+        let transcript = "";
+
+        for (
+            let i = event.resultIndex;
+            i < event.results.length;
+            i++
+        ) {
+
+            transcript +=
+                event.results[i][0].transcript;
+        }
+
+        input.value = transcript;
+
+    };
+
+
+    recognition.onend = function() {
+
+        isListening = false;
+
+        micButton.classList.remove("listening");
+
+        micButton.textContent = "🎤";
+
+        voiceStatus.style.display = "none";
+
+        input.focus();
+
+    };
+
+
+    recognition.onerror = function(event) {
+
+        console.error(
+            "Speech Recognition Error:",
+            event.error
+        );
+
+        isListening = false;
+
+        micButton.classList.remove("listening");
+
+        micButton.textContent = "🎤";
+
+        voiceStatus.style.display = "none";
+
+        if (event.error === "not-allowed") {
+
+            alert(
+                "Microphone permission is required for voice input."
+            );
+        }
+
+    };
+
+}
+
+
+// =========================
+// START VOICE INPUT
+// =========================
+
+function startVoiceInput() {
+
+    if (!recognition) {
+
+        alert(
+            "Voice input is not supported by this browser. Try Chrome."
+        );
+
+        return;
+    }
+
+
+    if (isListening) {
+
+        recognition.stop();
+
+        return;
+    }
+
+
+    try {
+
+        recognition.start();
+
+    } catch (error) {
+
+        console.error(
+            "Voice Start Error:",
+            error
+        );
+
+    }
+
+}
+
+
+// =========================
+// TEXT TO SPEECH
+// =========================
+
+function speakAnswer(text, button) {
+
+    if (
+        !("speechSynthesis" in window)
+    ) {
+
+        alert(
+            "Text-to-speech is not supported by this browser."
+        );
+
+        return;
+    }
+
+
+    if (speechSynthesis.speaking) {
+
+        speechSynthesis.cancel();
+
+        if (button) {
+            button.textContent = "🔊 Read";
+        }
+
+        return;
+    }
+
+
+    const cleanText =
+        text
+            .replace(
+                /https?:\/\/\S+/g,
+                ""
+            )
+            .trim();
+
+
+    const utterance =
+        new SpeechSynthesisUtterance(
+            cleanText
+        );
+
+    utterance.lang = "en-IN";
+
+    utterance.rate = 0.95;
+
+    utterance.pitch = 1;
+
+
+    utterance.onstart = function() {
+
+        if (button) {
+            button.textContent = "⏹️ Stop";
+        }
+
+    };
+
+
+    utterance.onend = function() {
+
+        if (button) {
+            button.textContent = "🔊 Read";
+        }
+
+    };
+
+
+    utterance.onerror = function() {
+
+        if (button) {
+            button.textContent = "🔊 Read";
+        }
+
+    };
+
+
+    speechSynthesis.speak(
+        utterance
+    );
+
+}
 
 
 // =========================
@@ -490,7 +792,11 @@ async function uploadPDF() {
 
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
+    if (
+        !file.name
+            .toLowerCase()
+            .endsWith(".pdf")
+    ) {
 
         uploadStatus.textContent =
             "❌ Only PDF files are allowed.";
@@ -505,7 +811,10 @@ async function uploadPDF() {
 
     const formData = new FormData();
 
-    formData.append("file", file);
+    formData.append(
+        "file",
+        file
+    );
 
     try {
 
@@ -517,12 +826,14 @@ async function uploadPDF() {
             }
         );
 
-        const data = await response.json();
+        const data =
+            await response.json();
 
         if (!response.ok) {
 
             throw new Error(
-                data.detail || "Upload failed"
+                data.detail ||
+                "Upload failed"
             );
         }
 
@@ -540,7 +851,10 @@ async function uploadPDF() {
 
     } catch (error) {
 
-        console.error("PDF Upload Error:", error);
+        console.error(
+            "PDF Upload Error:",
+            error
+        );
 
         uploadStatus.textContent =
             "❌ PDF upload failed.";
@@ -574,14 +888,21 @@ function saveHistory() {
 function loadHistory() {
 
     const saved =
-        localStorage.getItem("jaa_ai_history");
+        localStorage.getItem(
+            "jaa_ai_history"
+        );
 
     if (saved) {
 
         try {
-            chatHistory = JSON.parse(saved);
+
+            chatHistory =
+                JSON.parse(saved);
+
         } catch {
+
             chatHistory = [];
+
         }
 
     }
@@ -594,58 +915,88 @@ function renderHistory() {
 
     historyList.innerHTML = "";
 
-    chatHistory.forEach((item, index) => {
+    chatHistory.forEach(
+        (item, index) => {
 
-        const historyItem =
-            document.createElement("div");
-
-        historyItem.className =
-            "history-item";
-
-        if (item.id === sessionId) {
-            historyItem.classList.add("active");
-        }
-
-        const title =
-            document.createElement("span");
-
-        title.className =
-            "history-title-text";
-
-        title.textContent =
-            item.title || "New Chat";
-
-        const deleteButton =
-            document.createElement("button");
-
-        deleteButton.className =
-            "delete-chat-btn";
-
-        deleteButton.textContent = "🗑️";
-
-        deleteButton.onclick =
-            function(event) {
-
-                event.stopPropagation();
-
-                deleteChat(
-                    item.id,
-                    index
+            const historyItem =
+                document.createElement(
+                    "div"
                 );
 
-            };
+            historyItem.className =
+                "history-item";
 
-        historyItem.appendChild(title);
-        historyItem.appendChild(deleteButton);
+            if (
+                item.id === sessionId
+            ) {
 
-        historyItem.onclick =
-            function() {
-                loadChat(index);
-            };
+                historyItem.classList.add(
+                    "active"
+                );
 
-        historyList.appendChild(historyItem);
+            }
 
-    });
+            const title =
+                document.createElement(
+                    "span"
+                );
+
+            title.className =
+                "history-title-text";
+
+            title.textContent =
+                item.title ||
+                "New Chat";
+
+
+            const deleteButton =
+                document.createElement(
+                    "button"
+                );
+
+            deleteButton.className =
+                "delete-chat-btn";
+
+            deleteButton.textContent =
+                "🗑️";
+
+
+            deleteButton.onclick =
+                function(event) {
+
+                    event.stopPropagation();
+
+                    deleteChat(
+                        item.id,
+                        index
+                    );
+
+                };
+
+
+            historyItem.appendChild(
+                title
+            );
+
+            historyItem.appendChild(
+                deleteButton
+            );
+
+
+            historyItem.onclick =
+                function() {
+
+                    loadChat(index);
+
+                };
+
+
+            historyList.appendChild(
+                historyItem
+            );
+
+        }
+    );
 }
 
 
@@ -653,7 +1004,10 @@ function createHistoryItem(question) {
 
     const title =
         question.length > 30
-            ? question.substring(0, 30) + "..."
+            ? question.substring(
+                0,
+                30
+              ) + "..."
             : question;
 
     chatHistory.unshift({
@@ -662,6 +1016,7 @@ function createHistoryItem(question) {
     });
 
     saveHistory();
+
     renderHistory();
 }
 
@@ -671,6 +1026,8 @@ function createHistoryItem(question) {
 // =========================
 
 function newChat() {
+
+    speechSynthesis.cancel();
 
     sessionId =
         crypto.randomUUID();
@@ -701,6 +1058,8 @@ async function loadChat(index) {
         chatHistory[index];
 
     if (!selected) return;
+
+    speechSynthesis.cancel();
 
     sessionId =
         selected.id;
@@ -741,16 +1100,20 @@ async function loadChat(index) {
 
         } else {
 
-            data.messages.forEach(message => {
+            data.messages.forEach(
+                message => {
 
-                addMessage(
-                    message.content,
-                    message.role === "user"
-                        ? "user"
-                        : "ai"
-                );
+                    addMessage(
+                        message.content,
+                        message.role === "user"
+                            ? "user"
+                            : "ai",
+                        false,
+                        message.role === "assistant"
+                    );
 
-            });
+                }
+            );
 
         }
 
@@ -763,6 +1126,7 @@ async function loadChat(index) {
                 </div>
             </div>
         `;
+
     }
 
     renderHistory();
@@ -804,22 +1168,30 @@ async function deleteChat(
             throw new Error();
         }
 
-        chatHistory.splice(index, 1);
+        chatHistory.splice(
+            index,
+            1
+        );
 
         saveHistory();
+
         renderHistory();
 
         if (
-            sessionId === sessionIdToDelete
+            sessionId ===
+            sessionIdToDelete
         ) {
+
             newChat();
+
         }
 
     } catch {
 
         alert(
-            "Could not delete this chat."
+            "Could not delete chat."
         );
+
     }
 }
 
@@ -829,6 +1201,8 @@ async function deleteChat(
 // =========================
 
 function clearChat() {
+
+    speechSynthesis.cancel();
 
     chat.innerHTML = `
         <div class="message ai">
@@ -862,8 +1236,11 @@ async function askAI() {
 
     sendButton.disabled = true;
 
+    micButton.disabled = true;
+
     sendButton.textContent =
         "Thinking...";
+
 
     const typingMessage =
         addMessage(
@@ -872,6 +1249,7 @@ async function askAI() {
             true
         );
 
+
     try {
 
         const response =
@@ -879,20 +1257,84 @@ async function askAI() {
                 `${API_BASE}/ask?question=${encodeURIComponent(question)}&session_id=${encodeURIComponent(sessionId)}`
             );
 
+
         if (!response.ok) {
-            throw new Error();
+
+            let errorMessage =
+                "JAA.AI could not process your request.";
+
+            try {
+
+                const errorData =
+                    await response.json();
+
+                if (errorData.detail) {
+                    errorMessage =
+                        errorData.detail;
+                }
+
+            } catch {}
+
+            throw new Error(
+                errorMessage
+            );
         }
+
 
         const data =
             await response.json();
+
 
         const bubble =
             typingMessage.querySelector(
                 ".bubble"
             );
 
+
+        bubble.classList.remove(
+            "typing"
+        );
+
+
         bubble.textContent =
             data.answer;
+
+
+        // =========================
+        // READ ANSWER BUTTON
+        // =========================
+
+        const voiceButton =
+            document.createElement(
+                "button"
+            );
+
+        voiceButton.className =
+            "voice-answer-btn";
+
+        voiceButton.textContent =
+            "🔊 Read";
+
+
+        voiceButton.onclick =
+            function() {
+
+                speakAnswer(
+                    data.answer,
+                    voiceButton
+                );
+
+            };
+
+
+        bubble.appendChild(
+            voiceButton
+        );
+
+
+        // =========================
+        // SOURCES
+        // =========================
 
         if (
             data.sources &&
@@ -907,14 +1349,20 @@ async function askAI() {
             sourceBox.className =
                 "source-box";
 
+
             sourceBox.textContent =
                 "📚 Sources: " +
-                data.sources.join(", ");
+                data.sources.join(
+                    ", "
+                );
+
 
             bubble.appendChild(
                 sourceBox
             );
+
         }
+
 
         const alreadyExists =
             chatHistory.some(
@@ -922,12 +1370,15 @@ async function askAI() {
                     item.id === sessionId
             );
 
+
         if (!alreadyExists) {
 
             createHistoryItem(
                 question
             );
+
         }
+
 
     } catch (error) {
 
@@ -936,9 +1387,13 @@ async function askAI() {
             error
         );
 
+
         typingMessage
-            .querySelector(".bubble")
+            .querySelector(
+                ".bubble"
+            )
             .textContent =
+            error.message ||
             "Sorry, I could not connect to JAA.AI.";
 
     } finally {
@@ -946,11 +1401,16 @@ async function askAI() {
         sendButton.disabled =
             false;
 
+        micButton.disabled =
+            false;
+
         sendButton.textContent =
             "Send";
 
         input.focus();
+
     }
+
 
     chat.scrollTop =
         chat.scrollHeight;
@@ -964,38 +1424,89 @@ async function askAI() {
 function addMessage(
     text,
     type,
-    typing = false
+    typing = false,
+    isAssistant = false
 ) {
 
     const message =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     message.className =
         `message ${type}`;
 
+
     const bubble =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     bubble.className =
         "bubble";
 
+
     if (typing) {
-        bubble.classList.add("typing");
+
+        bubble.classList.add(
+            "typing"
+        );
+
     }
+
 
     bubble.textContent =
         text;
+
 
     message.appendChild(
         bubble
     );
 
+
     chat.appendChild(
         message
     );
 
+
     chat.scrollTop =
         chat.scrollHeight;
+
+
+    if (
+        isAssistant &&
+        !typing
+    ) {
+
+        const voiceButton =
+            document.createElement(
+                "button"
+            );
+
+        voiceButton.className =
+            "voice-answer-btn";
+
+        voiceButton.textContent =
+            "🔊 Read";
+
+
+        voiceButton.onclick =
+            function() {
+
+                speakAnswer(
+                    text,
+                    voiceButton
+                );
+
+            };
+
+
+        bubble.appendChild(
+            voiceButton
+        );
+
+    }
+
 
     return message;
 }
@@ -1013,12 +1524,38 @@ input.addEventListener(
             event.key === "Enter" &&
             !sendButton.disabled
         ) {
+
             askAI();
+
         }
 
     }
 );
 
+
+// =========================
+// STOP SPEECH WHEN PAGE CLOSES
+// =========================
+
+window.addEventListener(
+    "beforeunload",
+    function() {
+
+        if (
+            "speechSynthesis" in window
+        ) {
+
+            speechSynthesis.cancel();
+
+        }
+
+    }
+);
+
+
+// =========================
+// LOAD HISTORY
+// =========================
 
 loadHistory();
 
