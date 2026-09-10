@@ -88,7 +88,9 @@ body {
 #pdfInput {
     display: none;
 }
-
+#imageInput {
+    display: none;
+}
 .upload-status {
     font-size: 12px;
     color: #cbd5e1;
@@ -448,6 +450,23 @@ body {
         <div id="uploadStatus" class="upload-status">
             No PDF uploaded
         </div>
+        <input
+    type="file"
+    id="imageInput"
+    accept="image/png,image/jpeg,image/webp"
+    onchange="uploadImage()"
+>
+
+<button
+    class="upload-btn"
+    onclick="document.getElementById('imageInput').click()"
+>
+    🖼️ Upload Image
+</button>
+
+<div id="imageStatus" class="upload-status">
+    No image uploaded
+</div>
 
         <div class="section-title">
             Chat History
@@ -541,13 +560,15 @@ body {
 
 
 <script>
-
+let selectedImageId = null;
 const input = document.getElementById("question");
 const chat = document.getElementById("chat");
 const sendButton = document.getElementById("sendButton");
 const historyList = document.getElementById("historyList");
 const pdfInput = document.getElementById("pdfInput");
 const uploadStatus = document.getElementById("uploadStatus");
+const imageInput = document.getElementById("imageInput");
+const imageStatus = document.getElementById("imageStatus");
 
 const micButton = document.getElementById("micButton");
 const voiceStatus = document.getElementById("voiceStatus");
@@ -567,6 +588,8 @@ const SpeechRecognition =
     window.SpeechRecognition ||
     window.webkitSpeechRecognition;
 
+console.log("Speech Recognition:", SpeechRecognition);
+
 let recognition = null;
 let isListening = false;
 
@@ -578,7 +601,7 @@ if (SpeechRecognition) {
 
     recognition.interimResults = true;
 
-    recognition.lang = "en-IN";
+   recognition.lang = "en-IN";
 
 
     recognition.onstart = function() {
@@ -632,29 +655,21 @@ if (SpeechRecognition) {
 
     recognition.onerror = function(event) {
 
-        console.error(
-            "Speech Recognition Error:",
-            event.error
-        );
+    console.log("VOICE ERROR:", event.error);
 
-        isListening = false;
+    isListening = false;
 
-        micButton.classList.remove("listening");
+    micButton.classList.remove("listening");
 
-        micButton.textContent = "🎤";
+    micButton.textContent = "🎤";
 
-        voiceStatus.style.display = "none";
+    voiceStatus.style.display = "none";
 
-        if (event.error === "not-allowed") {
-
-            alert(
-                "Microphone permission is required for voice input."
-            );
+};
         }
 
-    };
+    
 
-}
 
 
 // =========================
@@ -663,37 +678,73 @@ if (SpeechRecognition) {
 
 function startVoiceInput() {
 
-    if (!recognition) {
+alert("MIC BUTTON CLICKED");
 
-        alert(
-            "Voice input is not supported by this browser. Try Chrome."
-        );
-
+    if (!SpeechRecognition) {
+        alert("Voice input is not supported. Please use Google Chrome.");
         return;
     }
 
+    if (!recognition) {
+        recognition = new SpeechRecognition();
+
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = "hi-IN";
+
+        recognition.onstart = function() {
+            isListening = true;
+            micButton.classList.add("listening");
+            micButton.textContent = "⏹️";
+            voiceStatus.style.display = "block";
+            voiceStatus.textContent = "🎤 Listening...";
+        };
+
+        recognition.onresult = function(event) {
+
+            let transcript = "";
+
+            for (
+                let i = event.resultIndex;
+                i < event.results.length;
+                i++
+            ) {
+                transcript += event.results[i][0].transcript;
+            }
+
+            input.value = transcript;
+        };
+
+        recognition.onend = function() {
+            isListening = false;
+            micButton.classList.remove("listening");
+            micButton.textContent = "🎤";
+            voiceStatus.style.display = "none";
+        };
+
+        recognition.onerror = function(event) {
+    alert("VOICE ERROR: " + event.error);
+
+    isListening = false;
+
+    micButton.classList.remove("listening");
+    micButton.textContent = "🎤";
+    voiceStatus.style.display = "none";
+
+    alert("Voice error: " + event.error);
+};
+    }
 
     if (isListening) {
-
         recognition.stop();
-
         return;
     }
 
-
     try {
-
         recognition.start();
-
     } catch (error) {
-
-        console.error(
-            "Voice Start Error:",
-            error
-        );
-
+        console.log("Voice start error:", error);
     }
-
 }
 
 
@@ -781,7 +832,104 @@ function speakAnswer(text, button) {
 
 }
 
+// =========================
+// IMAGE UPLOAD
+// =========================
 
+async function uploadImage() {
+
+    const file = imageInput.files[0];
+
+    if (!file) return;
+
+    const allowedTypes = [
+        "image/png",
+        "image/jpeg",
+        "image/webp"
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+
+        imageStatus.textContent =
+            "❌ Only PNG, JPG or WEBP images are allowed.";
+
+        imageInput.value = "";
+
+        return;
+    }
+
+    imageStatus.textContent =
+        "⏳ Uploading image...";
+
+    const formData = new FormData();
+
+    formData.append("file", file);
+
+    try {
+
+        const response = await fetch(
+            `${API_BASE}/upload-image`,
+            {
+                method: "POST",
+                body: formData
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.detail || "Image upload failed"
+            );
+        }
+selectedImageId = data.image_id;
+        imageStatus.textContent =
+    `✅ ${data.filename} uploaded successfully`;
+
+// Show uploaded image in chat
+const imageMessage = document.createElement("div");
+
+imageMessage.className = "message user";
+
+const imageBubble = document.createElement("div");
+
+imageBubble.className = "bubble";
+
+const img = document.createElement("img");
+
+img.src = URL.createObjectURL(file);
+img.alt = "Uploaded image";
+
+img.style.maxWidth = "350px";
+img.style.maxHeight = "350px";
+img.style.borderRadius = "12px";
+img.style.display = "block";
+
+imageBubble.appendChild(img);
+imageMessage.appendChild(imageBubble);
+
+chat.appendChild(imageMessage);
+
+chat.scrollTop = chat.scrollHeight;
+
+addMessage(
+    `Image uploaded successfully: ${data.filename}`,
+    "ai"
+);
+
+    } catch (error) {
+
+        console.error("Image Upload Error:", error);
+
+        imageStatus.textContent =
+            "❌ Image upload failed.";
+
+    } finally {
+
+        imageInput.value = "";
+
+    }
+}
 // =========================
 // PDF UPLOAD
 // =========================
@@ -828,7 +976,11 @@ async function uploadPDF() {
 
         const data =
             await response.json();
+            
 
+
+
+    
         if (!response.ok) {
 
             throw new Error(
@@ -1224,7 +1376,7 @@ async function askAI() {
 
     const question =
         input.value.trim();
-
+const imageId = selectedImageId || null;
     if (!question) return;
 
     addMessage(
@@ -1252,10 +1404,32 @@ async function askAI() {
 
     try {
 
-        const response =
-            await fetch(
-                `${API_BASE}/ask?question=${encodeURIComponent(question)}&session_id=${encodeURIComponent(sessionId)}`
-            );
+       let response;
+
+if (selectedImageId) {
+console.log("IMAGE ID:", selectedImageId);
+    response = await fetch(
+        `${API_BASE}/ask-image`,
+        {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                image_id: selectedImageId,
+                question: question
+            })
+        }
+    );
+
+} else {
+
+    response = await fetch(
+        `${API_BASE}/ask?question=${encodeURIComponent(question)}&session_id=${encodeURIComponent(sessionId)}`
+    );
+}
 
 
         if (!response.ok) {
@@ -1296,8 +1470,67 @@ async function askAI() {
         );
 
 
-        bubble.textContent =
-            data.answer;
+let listNumber = 0;
+let insideList = false;
+
+const lines = data.answer.split("\n");
+
+const cleanedLines = lines.map(function(line, index) {
+
+    // Markdown headings remove
+    line = line.replace(/^#{1,6}\s*/g, "");
+
+    // Bold / italic marks remove
+    line = line.replace(/\*\*/g, "");
+    line = line.replace(/\*/g, "");
+
+    // // remove
+    line = line.replace(/^\/\/\s*/g, "");
+
+    // Quotes remove
+    line = line.replace(/"/g, "");
+
+    // Table | remove
+    line = line.replace(/\|/g, "");
+
+    // Separator lines remove
+    if (/^\s*-{3,}\s*$/.test(line)) {
+        return "";
+    }
+
+    // Numbered list OR bullet list
+    const listMatch =
+        line.match(/^\s*(?:\d+\.\s+|-\s+)(.*)$/);
+
+    if (listMatch) {
+
+        if (!insideList) {
+            listNumber = 1;
+            insideList = true;
+        } else {
+            listNumber++;
+        }
+
+        return listNumber + ". " + listMatch[1];
+    }
+
+    // Non-list line
+    insideList = false;
+
+    return line.trim();
+
+});
+
+const cleanAnswer =
+    cleanedLines.join("\n");
+
+bubble.textContent =
+    cleanAnswer;
+
+
+            if (selectedImageId) {
+    selectedImageId = null;
+}
 
 
         // =========================
@@ -1562,4 +1795,4 @@ loadHistory();
 </script>
 
 </body>
-</html>
+</html> 

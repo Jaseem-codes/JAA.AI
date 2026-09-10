@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import List, Dict
 import os
+import base64
+import httpx
 
 from dotenv import load_dotenv
 
@@ -215,7 +217,61 @@ def get_llm():
         model=model_name,
         temperature=0
     )
+# =========================
+# OLLAMA VISION MODEL
+# =========================
 
+VISION_MODEL = "llama3.2-vision:latest"
+OLLAMA_URL = "http://localhost:11434"
+
+
+def ask_vision(image_path, question):
+
+    try:
+
+        import base64
+        import httpx
+
+        with open(image_path, "rb") as image_file:
+            image_base64 = base64.b64encode(
+                image_file.read()
+            ).decode("utf-8")
+
+        payload = {
+            "model": VISION_MODEL,
+            "prompt": question,
+            "images": [
+                image_base64
+            ],
+            "stream": False
+        }
+
+        response = httpx.post(
+            OLLAMA_URL,
+            json=payload,
+            timeout=180
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        return data.get(
+            "response",
+            "I could not understand the image."
+        )
+
+    except Exception as e:
+
+        print(
+            "VISION ERROR:",
+            repr(e)
+        )
+
+        return (
+            "Sorry, I could not read "
+            "the uploaded image."
+        )
 
 # =========================
 # ASK AI
